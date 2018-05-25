@@ -10,10 +10,11 @@
       {{ p.person.name }}
     </option>
   </select>
+
   <select
     v-model="event"
     class="e-choose fixed top-5 right-5 v-center"
-    @change="active = active">
+    @change="app.setactive(active)">
     <option v-for="(ev, i) in p.event" v-bind:value="i">
       {{ ev.title }}{{ ev.elapsed ? ' - ' + ev.elapsed : '' }}
     </option>
@@ -168,6 +169,18 @@
                 class="pointer currinfo"
                 @click="e.data.management.items.length ? app.setactive('management') : 0"
                 value="Management">
+
+              <!-- STUDY GUIDES -->
+              <input
+                v-if="e.data.guidelist.length"
+                v-bind:class="
+                  [('studyguide' === active
+                   ? 'active'
+                   : 'passive')]"
+                type="button"
+                class="pointer currinfo"
+                @click="app.setactive('studyguide')"
+                value="Study Guide">
             </div>
 
 
@@ -233,6 +246,7 @@
                   <div v-if="d.data" v-html="d.data"></div>
                 </div>
               </div>
+
               <!-- PATIENT RECORDS -->
               <div v-if="active==='records'">
                 <div v-for="e of p.event.slice(0, event+1)">
@@ -346,6 +360,44 @@
                   <div v-bind:id="`charts-${key}`"></div>
                 </div>
               </div>
+
+              <!-- STUDY GUIDES -->
+              <div v-if="active==='studyguide'">
+                <div v-for="(g, indg) in e.data.guidelist">
+
+                  <div
+                    class="record-title"
+                    v-on:click="g.recordshown = (g.answershown=false, !g.recordshown), $forceUpdate()">
+                    <h4> {{ g.questionindex ? `Question : ${g.questionindex}` : "Study Guide" }} </h4>
+                  </div>
+
+                  <div class="record-body" v-if="g.recordshown">
+                    <div v-if="g.title"><br><b>{{ g.title }}</b><br></div>
+                    <div v-if="g.name=='openquestion'">
+                      <div 
+                        style="margin-top: 1em; margin-bottom: 1em;" 
+                        v-if="g.type=='text'"> {{ g.questiontext }} </div>
+                      <div v-if="g.type=='cdata'" v-html="g.questiontext">
+                        {{ app.log(g) }}
+                      </div>
+                      <textarea width="100%"></textarea>
+                      <br><br>
+                      <button
+                        v-if="!g.answershown"
+                        v-on:click="g.answershown = true, $forceUpdate()">
+                        Submit
+                      </button>
+                      <div v-if="g.answershown" v-html="g.responsetext"></div>
+                      <br><br>
+                    </div>
+
+                    <div v-if="g.name=='data'" v-html="g.cdata"> {{ app.log(g), app.log(p) }}</div>
+                  </div>
+
+
+                </div>
+              </div>
+
 
             </div>
           </div>

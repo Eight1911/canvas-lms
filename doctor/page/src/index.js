@@ -2,9 +2,7 @@
 import Vue from 'vue'
 const { bb } = require('billboard.js')
 
-console.log(bb)
-
-function assert(t, ) {
+function assert(t) {
   if (!t) {
     console.trace()
     throw "Assertion Error"
@@ -30,12 +28,7 @@ class App {
       const computed = {
         text : () => self.data[data.person].event[data.event].data[data.active],
         p : () => self.data[data.person],
-        e : () => { 
-          const events = self.data[data.person].event
-          for (let event of events)
-            event.recordshown = false
-          return events[data.event]
-        }
+        e : () => self.data[data.person].event[data.event]
       }
 
       const options = {
@@ -70,12 +63,12 @@ class App {
     console.log(item)
   }
 
-  show(key) {
-
-  }
-
   setactive(active) {
     this.vue.active = "nothing"
+    const e = this.vue.e
+    e.recordshown = false
+    for (let g of e.data.guidelist)
+      g.recordshown = false
     setTimeout(() => this.vue.active = active, 10)
   }
 
@@ -88,6 +81,7 @@ class App {
     for (let event = 0; event < l.length; ++event)
       for (let item of l[event])
         if (active[item.name] !== undefined) {
+
           item = Object.assign({event}, item)
           const dat = active[item.name]
           if (item.state !== "end")
@@ -96,7 +90,9 @@ class App {
             console.log(dat.dose, item.dose)
           table[dat.index].end = event
           delete active[item.name]
+
         } else {
+
           item = Object.assign({
             start : event, 
             index : table.length
@@ -109,7 +105,6 @@ class App {
         }
 
     return table
-
   }
 
   problemlist() {
@@ -186,6 +181,7 @@ class App {
         })
       }
     }
+
     setTimeout(run, 0)
     return Object
       .keys(measurements)

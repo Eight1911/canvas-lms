@@ -8,19 +8,20 @@ function print(item) {
 
 
 const path ='patientlist.xml'
-
 function loadxml(path) {
   const raw = fs.readFileSync(path, 'utf-8');
   return xml.xml2js(raw)
     .elements
 }
 
+// go down the xml tree to depth `depth`
 function delve(item, depth) {
   for (let i = 0; i < depth; ++i)
     item = item.elements[0]
   return item
 }
 
+// convert an parsed xml to json
 function convert(arr, f=item=>item, id='name') {
   const obj = {}
   for (let item of arr)
@@ -28,22 +29,31 @@ function convert(arr, f=item=>item, id='name') {
   return obj
 }
 
+function assert(a) {
+  if (!a)
+    throw "assertion error"
+}
 
-function htmlparse(html, path) {
+// change html to html5
+function htmlparse(html, path='') {
   if (!html) 
     return html
   html = html
-    .replace(/<(.|)TEXTFORMAT.*?>/g, '')
-    .replace(/<(.|)FONT.*?>/g, '')
-    .replace(/<(.|)P.*?>/g, '<p>')
-    .replace("src=\"", `src=\"`+path)
+    .replace(/<(.|)TEXTFORMAT.*?>/gi, '')
+    .replace(/<(.|)FONT.*?>/gi, '')
+    .replace(/<(.|)P.*?>/gi, '<p>')
+    .replace(/\.swf/gi, '.png')
+    .replace(/src=\"(?!(http|www))/gi, `src=\"`+path)
+    .replace(/src=\'(?!(http|www))/gi, `src=\'`+path)
+    .replace(/href=\"(?!(http|www))/gi, `href=\"`+path)
+    .replace(/href=\'(?!(http|www))/gi, `href=\'`+path)
   return html
 }
 
-function formatunits(units) {
-
-}
-
+// Display Object is a collective class
+// the is a superclass of each 
+// Inbox, History, Procedure, and Management
+// These items only contain rawhtml
 class Display {
 
   constructor(data, path) {
@@ -59,9 +69,9 @@ class Display {
           title : item.attributes.title,
           body : delve(item, 4).cdata 
             ? htmlparse(delve(item, 4).cdata, path)
-            : delve(item, 7).text // cdata is not recorded as cdata 
-      }))                         // so you have to dig deeper into p
-                                  // to get this out
+            : delve(item, 7).text 
+            // cdata is not recorded as cdata 
+      }))   // so you have to dig deeper into p to get this out
   }
 
   transfer() {
@@ -71,6 +81,7 @@ class Display {
     }
   }
 }
+
 
 class ListItem {
 
@@ -222,14 +233,48 @@ class Drug extends ListItem {
 class Problem extends ListItem {
   keys() { return ['name', 'state'] }
 }
+class GuideItem {
 
-class guide {
-  constructor() {
+  constructor(guideitem, path='', qindex=undefined) {
+    this.name = guideitem.name
+    this.title = guideitem.attributes.title
+    if (this.name === "data") {
+      this.cdata = htmlparse(delve(guideitem, 4).cdata, path)
+      if (this.cdata.includes("swf"))
+        console.log(this.cdata)
+    } else if (this.name === "openquestion") {
+      let [question, response] = guideitem.elements
+      question = delve(question, 3)
+      response = delve(response, 3)
+      assert(response.type === "cdata")
+      this.type = question.type
+      this.questionindex = qindex
+      this.questiontext = htmlparse(question[question.type], path)
+      this.responsetext = htmlparse(response.cdata, path)
+    } else
+      throw "either data or open question, not neither"
+  }
 
+  static readlist(guides, path='') {
+    let qindex = 0
+    let guidelist = []
+    for (let g of guides) {
+      qindex += g.name === "openquestion"
+      guidelist.push(new GuideItem(g, path, qindex))
+    }
+    return guidelist
   }
 
   transfer() {
-    return {}
+    return {
+      name          : this.name,
+      type          : this.type,
+      title         : this.title,
+      cdata         : this.cdata,
+      questiontext  : this.questiontext,
+      responsetext  : this.responsetext,
+      questionindex : this.questionindex,
+    }
   }
 }
 
@@ -238,6 +283,7 @@ class Event {
   constructor(event, guide, path) {
     this.title = event.attributes.title
     this.elapsed = event.attributes.elapsedtime
+    guide = guide ? guide.elements : []
     const rawdata = convert(event.elements)
     this.data = {
       inbox       : new Inbox(rawdata.inbox, path),
@@ -248,6 +294,7 @@ class Event {
       investigate : new Investigate(rawdata.investigate, path),
       druglist    : Drug.readlist(rawdata.druglist),
       problemlist : Problem.readlist(rawdata.problemlist),
+      guidelist   : GuideItem.readlist(guide, path)
     }
   }
 
@@ -264,6 +311,7 @@ class Event {
         investigate : this.data.investigate.transfer(),
         druglist    : this.data.druglist.map(x => x.transfer()),
         problemlist : this.data.problemlist.map(x => x.transfer()),
+        guidelist   : this.data.guidelist.map(x => x.transfer()),
       }
     }
   }
@@ -291,7 +339,7 @@ class Patient {
     const extractor = i => i.elements && i.elements.length
       ? i.elements[0].text
       : undefined
-    for (const item of data[0].elements)
+    for (const item of data[0].elements) {
       if (item.name === 'character')
         this.person = convert(item.elements, extractor),
         this.person.face = path+item.attributes.filename
@@ -300,6 +348,7 @@ class Patient {
         this.events.push(new Event(item, dict[title], path))
       }
     }
+  }
 
   transfer() {
     return {
@@ -308,7 +357,6 @@ class Patient {
       event   : this.events.map(e => e.transfer())
     }
   }
-
 
   static readfile(base, path) {
     const data = loadxml(base + path)
@@ -329,7 +377,5 @@ class Patient {
 const p = Patient.readfile('../page/data/data/', path)
 const data = p.map(p => p.transfer())
 const string = JSON.stringify(data)
-
-
 
 fs.writeFile("../page/data/data.json", string, (err) => console.log(err))
