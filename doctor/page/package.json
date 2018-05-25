@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "babel-preset-stage-2": "^6.24.1",
+    "billboard.js": "^1.4.1",
     "easyxml": "^2.0.1",
     "jxon": "^2.0.0-beta.5",
     "libxmljs": "^0.18.7",
