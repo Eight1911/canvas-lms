@@ -36,9 +36,6 @@ class View {
       load_progress: 0,
     }
 
-
-
-
     this.vue = new Vue({ el: '#main', data, template })
     this.courselist = undefined
     this.key = undefined
